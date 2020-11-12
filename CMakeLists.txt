@@ -67,9 +67,13 @@ ${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc
 ${CUDA_INCLUDE_DIRS}
 )
 
+cuda_include_directories(
+${CUDA_TOOLKIT_ROOT_DIR}/samples/common/inc
+)
+
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
-add_library(${PROJECT_NAME} SHARED
+cuda_add_library(${PROJECT_NAME} SHARED
 src/System.cc
 src/Tracking.cc
 src/LocalMapping.cc

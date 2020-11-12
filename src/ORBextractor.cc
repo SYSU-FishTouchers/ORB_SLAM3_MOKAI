@@ -408,7 +408,8 @@ namespace ORB_SLAM3
     ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
                                int _iniThFAST, int _minThFAST):
             nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
-            iniThFAST(_iniThFAST), minThFAST(_minThFAST)
+            iniThFAST(_iniThFAST), minThFAST(_minThFAST),
+            gpuFast(iniThFAST, minThFAST), ic_angle(), gpuOrb()
     {
         mvScaleFactor.resize(nlevels);
         mvLevelSigma2.resize(nlevels);
