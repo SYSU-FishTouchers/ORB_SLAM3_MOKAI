@@ -2,7 +2,7 @@
 #include <helper_cuda.h>
 #include <cuda/Allocator.hpp>
 
-namespace ORB_SLAM2 { namespace cuda {
+namespace ORB_SLAM3 { namespace cuda {
 
 size_t Allocator::getPitch(size_t widthSize){
     return 128 + widthSize - widthSize%128;
@@ -39,7 +39,7 @@ cv::cuda::GpuMat::Allocator * gpu_mat_allocator;
 
 
 namespace {
-  using namespace ORB_SLAM2;
+  using namespace ORB_SLAM3;
 
   void __attribute__((constructor)) init() {
     // Setup GPU Memory Management

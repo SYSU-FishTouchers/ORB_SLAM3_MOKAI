@@ -51,7 +51,7 @@ using namespace cv;
 using namespace cv::cuda;
 using namespace cv::cuda::device;
 
-namespace ORB_SLAM2 { namespace cuda {
+namespace ORB_SLAM3 { namespace cuda {
   ///////////////////////////////////////////////////////////////////////////
   // calcKeypoints
 
