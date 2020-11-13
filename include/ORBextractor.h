@@ -84,9 +84,9 @@ public:
         return mvInvLevelSigma2;
     }
 
-    std::vector<cv::Mat> mvImagePyramid;
+//    std::vector<cv::Mat> mvImagePyramid;
     bool mvImagePyramidAllocatedFlag;
-//    std::vector<cv::cuda::GpuMat> mvImagePyramid;
+    std::vector<cv::cuda::GpuMat> mvImagePyramid;
     std::vector<cv::cuda::GpuMat> mvImagePyramidBorder;
 protected:
 
