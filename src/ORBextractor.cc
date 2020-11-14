@@ -752,15 +752,6 @@ namespace ORB_SLAM3
         ic_angle.join(allKeypoints[nlevels - 1].data(), allKeypoints[nlevels - 1].size());
     }
 
-    static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
-                                   const vector<Point>& pattern)
-    {
-        descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
-
-        for (size_t i = 0; i < keypoints.size(); i++)
-            computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
-    }
-
     int ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
                                   OutputArray _descriptors, std::vector<int> &vLappingArea)
     {
@@ -807,15 +798,24 @@ namespace ORB_SLAM3
                 continue;
 
             // preprocess the resized image
-            Mat workingMat(mvImagePyramid[level].clone());
-            GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+            cv::cuda::GpuMat &gMat = mvImagePyramid[level];
+
+            // Compute of Gaussion Blur is pipelined into `ComputeKeyPointsOctTree()`
 
             // Compute the descriptors
-            //Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
-            Mat desc = cv::Mat(nkeypointsLevel, 32, CV_8U);
-            computeDescriptors(workingMat, keypoints, desc, pattern);
+            // Pipeline the CPU and GPU work
+            if (level == 0) {
+                gpuOrb.launch_async(gMat, keypoints.data(), keypoints.size());
+            }
+            Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+            gpuOrb.join(desc);
 
             offset += nkeypointsLevel;
+
+            if (level + 1 < nlevels) {
+                vector<KeyPoint> &keypoints = allKeypoints[level + 1];
+                gpuOrb.launch_async(mvImagePyramid[level + 1], keypoints.data(), keypoints.size());
+            }
 
 
             float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
