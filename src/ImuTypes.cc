@@ -252,7 +252,8 @@ void Preintegrated::Reintegrate()
         IntegrateNewMeasurement(aux[i].a,aux[i].w,aux[i].t);
 }
 
-void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt)
+void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt,
+                                            bool isIMUinitialized)
 {
     mvMeasurements.push_back(integrable(acceleration,angVel,dt));
 
@@ -266,6 +267,11 @@ void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, con
 
     cv::Mat acc = (cv::Mat_<float>(3,1) << acceleration.x-b.bax,acceleration.y-b.bay, acceleration.z-b.baz);
     cv::Mat accW = (cv::Mat_<float>(3,1) << angVel.x-b.bwx, angVel.y-b.bwy, angVel.z-b.bwz);
+
+    if (isIMUinitialized) {
+        acc = (cv::Mat_<float>(3, 1) << 0, 0, 0);
+        accW = (cv::Mat_<float>(3, 1) << 0, 0, 0);
+    }
 
     avgA = (dT*avgA + dR*acc*dt)/(dT+dt);
     avgW = (dT*avgW + accW*dt)/(dT+dt);

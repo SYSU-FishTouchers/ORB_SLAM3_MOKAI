@@ -213,7 +213,8 @@ public:
     ~Preintegrated() {}
     void CopyFrom(Preintegrated* pImuPre);
     void Initialize(const Bias &b_);
-    void IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt);
+    void IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt,
+                                 bool isIMUinitialized = false);
     void Reintegrate();
     void MergePrevious(Preintegrated* pPrev);
     void SetNewBias(const Bias &bu_);
