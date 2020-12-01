@@ -1210,8 +1210,8 @@ void Tracking::PreintegrateIMU()
 
         if (!mpImuPreintegratedFromLastKF)
             cout << "mpImuPreintegratedFromLastKF does not exist" << endl;
-        mpImuPreintegratedFromLastKF->IntegrateNewMeasurement(acc,angVel,tstep, mpAtlas->GetCurrentMap()->isImuInitialized());
-        pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc,angVel,tstep, mpAtlas->GetCurrentMap()->isImuInitialized());
+        mpImuPreintegratedFromLastKF->IntegrateNewMeasurement(acc,angVel,tstep);
+        pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc,angVel,tstep);
     }
 
     mCurrentFrame.mpImuPreintegratedFrame = pImuPreintegratedFromLastFrame;
