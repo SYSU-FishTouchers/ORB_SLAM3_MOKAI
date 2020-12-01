@@ -214,6 +214,8 @@ public:
     void CopyFrom(Preintegrated* pImuPre);
     void Initialize(const Bias &b_);
     void IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt);
+    void IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt, bool isImageFrame);
+    void IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt, cv::Mat &_velocity);
     void Reintegrate();
     void MergePrevious(Preintegrated* pPrev);
     void SetNewBias(const Bias &bu_);
@@ -221,6 +223,11 @@ public:
     cv::Mat GetDeltaRotation(const Bias &b_);
     cv::Mat GetDeltaVelocity(const Bias &b_);
     cv::Mat GetDeltaPosition(const Bias &b_);
+
+    cv::Mat GetConstantVelocityDeltaVelocity(const Bias &b_);
+    cv::Mat GetConstantVelocityDeltaPosition(const Bias &b_);
+    bool isConstantVelocityMotion() { return Preintegrated::accelerationFrameCount == 0; }
+
     cv::Mat GetUpdatedDeltaRotation();
     cv::Mat GetUpdatedDeltaVelocity();
     cv::Mat GetUpdatedDeltaPosition();
@@ -233,7 +240,9 @@ public:
     Bias GetUpdatedBias();
 
 public:
+    // total integrated time
     float dT;
+    // covariance
     cv::Mat C;
     cv::Mat Info;
     cv::Mat Nga, NgaWalk;
@@ -241,10 +250,12 @@ public:
     // Values for the original bias (when integration was computed)
     Bias b;
     cv::Mat dR, dV, dP;
+    cv::Mat constantVelocity_dR, constantVelocity_dV, constantVelocity_dP;
     cv::Mat JRg, JVg, JVa, JPg, JPa;
     cv::Mat avgA;
     cv::Mat avgW;
 
+    static int accelerationFrameCount;
 
 private:
     // Updated bias

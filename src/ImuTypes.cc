@@ -252,6 +252,28 @@ void Preintegrated::Reintegrate()
         IntegrateNewMeasurement(aux[i].a,aux[i].w,aux[i].t);
 }
 
+void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt, cv::Mat &_velocity)
+{
+    constantVelocity_dP = dP + _velocity * dt;
+    constantVelocity_dV = _velocity;
+
+    Preintegrated::IntegrateNewMeasurement(acceleration, angVel, dt);
+}
+
+void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt, bool isImageFrame)
+{
+    if (isImageFrame) {
+        constantVelocity_dP = dP + dV * dt;
+        constantVelocity_dV = dV;
+    }
+    else {
+        constantVelocity_dP = constantVelocity_dP + constantVelocity_dV * dt;
+//        constantVelocity_dV = constantVelocity_dV;
+    }
+
+    Preintegrated::IntegrateNewMeasurement(acceleration, angVel, dt);
+}
+
 void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt)
 {
     mvMeasurements.push_back(integrable(acceleration,angVel,dt));
@@ -292,6 +314,8 @@ void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, con
 
     // Update delta rotation
     IntegratedRotation dRi(angVel,b,dt);
+
+    constantVelocity_dR = dR;
     dR = NormalizeRotation(dR*dRi.deltaR);
 
     // Compute rotation parts of matrices A and B
@@ -449,7 +473,17 @@ Eigen::Matrix<double,15,15> Preintegrated::GetInformationMatrix()
     return EI;
 }
 
-void Bias::CopyFrom(Bias &b)
+int Preintegrated::accelerationFrameCount = 300;
+
+cv::Mat Preintegrated::GetConstantVelocityDeltaVelocity(const Bias &b_) {
+    return GetDeltaVelocity(b_) - dV + 0;
+}
+
+cv::Mat Preintegrated::GetConstantVelocityDeltaPosition(const Bias &b_) {
+    return GetDeltaPosition(b_) - dP + 0;
+}
+
+    void Bias::CopyFrom(Bias &b)
 {
     bax = b.bax;
     bay = b.bay;

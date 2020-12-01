@@ -1210,8 +1210,18 @@ void Tracking::PreintegrateIMU()
 
         if (!mpImuPreintegratedFromLastKF)
             cout << "mpImuPreintegratedFromLastKF does not exist" << endl;
-        mpImuPreintegratedFromLastKF->IntegrateNewMeasurement(acc,angVel,tstep);
-        pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc,angVel,tstep);
+
+        // KeyFrame will not re instantiation every ImageFrame
+        // So, imu integrate from last KeyFrame dP will not be 0 every ImageFrame
+
+//        if (!mVelocity.empty()) {
+            if (false) {
+            mpImuPreintegratedFromLastKF->IntegrateNewMeasurement(acc, angVel, tstep, mVelocity);
+            pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc, angVel, tstep, mVelocity);
+        } else {
+            mpImuPreintegratedFromLastKF->IntegrateNewMeasurement(acc, angVel, tstep);
+            pImuPreintegratedFromLastFrame->IntegrateNewMeasurement(acc, angVel, tstep );
+        }
     }
 
     mCurrentFrame.mpImuPreintegratedFrame = pImuPreintegratedFromLastFrame;
@@ -1392,6 +1402,9 @@ void Tracking::Track()
     mTime_LocalMapTrack = 0;
     mTime_NewKF_Dec = 0;
 #endif
+
+    if (IMU::Preintegrated::accelerationFrameCount != 0)
+        IMU::Preintegrated::accelerationFrameCount--;
 
     if (bStepByStep)
     {
@@ -1901,6 +1914,9 @@ void Tracking::Track()
         }
 
     }
+
+    if (mVelocity.empty())
+        cout << "*********************************************************" << endl;
 }
 
 

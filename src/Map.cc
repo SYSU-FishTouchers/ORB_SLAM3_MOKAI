@@ -30,6 +30,7 @@ Map::Map():mnMaxKFid(0),mnBigChangeIdx(0), mbImuInitialized(false), mnMapChange(
 mbFail(false), mIsInUse(false), mHasTumbnail(false), mbBad(false), mnMapChangeNotified(0), mbIsInertial(false), mbIMU_BA1(false), mbIMU_BA2(false)
 {
     mnId=nNextId++;
+    IMU::Preintegrated::accelerationFrameCount = 300;
     mThumbnail = static_cast<GLubyte*>(NULL);
 }
 
@@ -38,6 +39,7 @@ Map::Map(int initKFid):mnInitKFid(initKFid), mnMaxKFid(initKFid),mnLastLoopKFid(
                        mnMapChange(0), mbFail(false), mnMapChangeNotified(0), mbIsInertial(false), mbIMU_BA1(false), mbIMU_BA2(false)
 {
     mnId=nNextId++;
+    IMU::Preintegrated::accelerationFrameCount = 300;
     mThumbnail = static_cast<GLubyte*>(NULL);
 }
 
@@ -228,6 +230,7 @@ void Map::clear()
     mnMaxKFid = mnInitKFid;
     mnLastLoopKFid = 0;
     mbImuInitialized = false;
+    IMU::Preintegrated::accelerationFrameCount = 300;
     mvpReferenceMapPoints.clear();
     mvpKeyFrameOrigins.clear();
     mbIMU_BA1 = false;
