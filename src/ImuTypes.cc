@@ -271,6 +271,9 @@ void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, con
     avgW = (dT*avgW + accW*dt)/(dT+dt);
 
     // Update delta position dP and velocity dV (rely on no-updated delta rotation)
+    constantVelocity_dP = dP + dV * dt;
+    constantVelocity_dV = dV;
+
     dP = dP + dV*dt + 0.5f*dR*acc*dt*dt;
     dV = dV + dR*acc*dt;
 
@@ -292,6 +295,8 @@ void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, con
 
     // Update delta rotation
     IntegratedRotation dRi(angVel,b,dt);
+
+    constantVelocity_dR = dR;
     dR = NormalizeRotation(dR*dRi.deltaR);
 
     // Compute rotation parts of matrices A and B
@@ -447,6 +452,16 @@ Eigen::Matrix<double,15,15> Preintegrated::GetInformationMatrix()
         for(int j=0;j<15;j++)
             EI(i,j)=Info.at<float>(i,j);
     return EI;
+}
+
+int Preintegrated::accelerationFrameCount = 0;
+
+cv::Mat Preintegrated::GetConstantVelocityDeltaVelocity(const Bias &b_) {
+    return GetDeltaVelocity(b_) - dV + constantVelocity_dV;
+}
+
+cv::Mat Preintegrated::GetConstantVelocityDeltaPosition(const Bias &b_) {
+    return GetDeltaPosition(b_) - dP + constantVelocity_dP;
 }
 
 void Bias::CopyFrom(Bias &b)

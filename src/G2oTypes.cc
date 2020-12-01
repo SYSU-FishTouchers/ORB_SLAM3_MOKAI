@@ -726,10 +726,24 @@ void EdgeInertial::computeError()
     const VertexAccBias* VA1= static_cast<const VertexAccBias*>(_vertices[3]);
     const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[4]);
     const VertexVelocity* VV2 = static_cast<const VertexVelocity*>(_vertices[5]);
-    const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
+    const IMU::Bias b1(
+            VA1->estimate()[0],
+            VA1->estimate()[1],
+            VA1->estimate()[2],
+            VG1->estimate()[0],
+            VG1->estimate()[1],
+            VG1->estimate()[2]);
     const Eigen::Matrix3d dR = Converter::toMatrix3d(mpInt->GetDeltaRotation(b1));
-    const Eigen::Vector3d dV = Converter::toVector3d(mpInt->GetDeltaVelocity(b1));
-    const Eigen::Vector3d dP = Converter::toVector3d(mpInt->GetDeltaPosition(b1));
+    Eigen::Vector3d dV;
+    Eigen::Vector3d dP;
+    if (mpInt->isConstantVelocityMotion()) {
+        cerr << "=============================================================================================" << endl;
+        dV = Converter::toVector3d(mpInt->GetConstantVelocityDeltaVelocity(b1));
+        dP = Converter::toVector3d(mpInt->GetConstantVelocityDeltaPosition(b1));
+    } else {
+        dV = Converter::toVector3d(mpInt->GetDeltaVelocity(b1));
+        dP = Converter::toVector3d(mpInt->GetDeltaPosition(b1));
+    }
 
     const Eigen::Vector3d er = LogSO3(dR.transpose()*VP1->estimate().Rwb.transpose()*VP2->estimate().Rwb);
     const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(VV2->estimate() - VV1->estimate() - g*dt) - dV;
