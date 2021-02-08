@@ -49,3 +49,5 @@ cmake-build-debug/
 *.osa
 
 .idea
+
+results
