@@ -2449,6 +2449,7 @@ bool Tracking::TrackWithMotionModel()
     }
     else
     {
+        kalmanFilter();
         mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
     }
 
@@ -3896,6 +3897,46 @@ int Tracking::GetNumberDataset()
 int Tracking::GetMatchesInliers()
 {
     return mnMatchesInliers;
+}
+
+double Tracking::kalmanFilter()
+{
+    integrate();
+    return 0.0f;
+}
+
+Eigen::Quaternionf Tracking::integrate()
+{
+    Eigen::Quaternionf result(1, 0, 0, 0);
+    cv::Point3f accumulation(0, 0, 0);
+
+    const int n = mvImuFromLastFrame.size() - 1;
+    for (int i = 0; i < n; i++) {
+        float tstep;
+        cv::Point3f angVel;
+        if ((i == 0) && (i < (n - 1))) {
+            float tab = mvImuFromLastFrame[i + 1].t - mvImuFromLastFrame[i].t;
+            float tini = mvImuFromLastFrame[i].t - mLastFrame.mTimeStamp;
+            angVel = (mvImuFromLastFrame[i].w + mvImuFromLastFrame[i + 1].w - (mvImuFromLastFrame[i + 1].w - mvImuFromLastFrame[i].w) * (tini / tab)) * 0.5f;
+            tstep = mvImuFromLastFrame[i + 1].t - mLastFrame.mTimeStamp;
+        } else if (i < (n - 1)) {
+            angVel = (mvImuFromLastFrame[i].w + mvImuFromLastFrame[i + 1].w) * 0.5f;
+            tstep = mvImuFromLastFrame[i + 1].t - mvImuFromLastFrame[i].t;
+        } else if ((i > 0) && (i == (n - 1))) {
+            float tab = mvImuFromLastFrame[i + 1].t - mvImuFromLastFrame[i].t;
+            float tend = mvImuFromLastFrame[i + 1].t - mCurrentFrame.mTimeStamp;
+            angVel = (mvImuFromLastFrame[i].w + mvImuFromLastFrame[i + 1].w - (mvImuFromLastFrame[i + 1].w - mvImuFromLastFrame[i].w) * (tend / tab)) * 0.5f;
+            tstep = mCurrentFrame.mTimeStamp - mvImuFromLastFrame[i].t;
+        } else if ((i == 0) && (i == (n - 1))) {
+            angVel = mvImuFromLastFrame[i].w;
+            tstep = mCurrentFrame.mTimeStamp - mLastFrame.mTimeStamp;
+        }
+        accumulation += angVel * tstep;
+    }
+
+    return Eigen::AngleAxisf(accumulation.x, Eigen::Vector3f::UnitX())
+        * Eigen::AngleAxisf(accumulation.y, Eigen::Vector3f::UnitY())
+        * Eigen::AngleAxisf(accumulation.z, Eigen::Vector3f::UnitZ());
 }
 
 } //namespace ORB_SLAM

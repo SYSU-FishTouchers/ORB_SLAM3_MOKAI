@@ -272,6 +272,8 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
         for(size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
             mpTracker->GrabImuData(vImuMeas[i_imu]);
 
+    mpTracker->mvImuFromLastFrame.assign(vImuMeas.begin(), vImuMeas.end());
+
     // std::cout << "start GrabImageStereo" << std::endl;
     cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp,filename);
 

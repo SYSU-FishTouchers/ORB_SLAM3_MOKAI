@@ -166,6 +166,10 @@ public:
 
     bool mbWriteStats;
 
+    // Vector of IMU measurements from previous to current frame (to be filled by PreintegrateIMU)
+    std::vector<IMU::Point> mvImuFromLastFrame;
+    std::mutex mMutexImuQueue;
+
 protected:
 
     // Main tracking function. It is independent of the input sensor.
@@ -207,6 +211,8 @@ protected:
     void ComputeGyroBias(const vector<Frame*> &vpFs, float &bwx,  float &bwy, float &bwz);
     void ComputeVelocitiesAccBias(const vector<Frame*> &vpFs, float &bax,  float &bay, float &baz);
 
+    double kalmanFilter();
+    Eigen::Quaternionf integrate();
 
     bool mbMapUpdated;
 
@@ -216,9 +222,6 @@ protected:
     // Queue of IMU measurements between frames
     std::list<IMU::Point> mlQueueImuData;
 
-    // Vector of IMU measurements from previous to current frame (to be filled by PreintegrateIMU)
-    std::vector<IMU::Point> mvImuFromLastFrame;
-    std::mutex mMutexImuQueue;
 
     // Imu calibration parameters
     IMU::Calib *mpImuCalib;
