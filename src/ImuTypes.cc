@@ -489,6 +489,7 @@ void Calib::Set(const cv::Mat &Tbc_, const float &ng, const float &na, const flo
     Tcb = cv::Mat::eye(4,4,CV_32F);
     Tcb.rowRange(0,3).colRange(0,3) = Tbc.rowRange(0,3).colRange(0,3).t();
     Tcb.rowRange(0,3).col(3) = -Tbc.rowRange(0,3).colRange(0,3).t()*Tbc.rowRange(0,3).col(3);
+    Qcb = Converter::toMatrix3f(Tcb.rowRange(0, 3).colRange(0, 3));
     Cov = cv::Mat::eye(6,6,CV_32F);
     const float ng2 = ng*ng;
     const float na2 = na*na;

@@ -41,6 +41,7 @@ public:
     static cv::Mat toCvMat(const g2o::Sim3 &Sim3);
     static cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m);
     static cv::Mat toCvMat(const Eigen::Matrix3d &m);
+    static cv::Mat toCvMat(const Eigen::Matrix3f &m);
     static cv::Mat toCvMat(const Eigen::Matrix<double,3,1> &m);
     static cv::Mat toCvMat(const Eigen::MatrixXd &m);
 
@@ -49,7 +50,8 @@ public:
 
     static Eigen::Matrix<double,3,1> toVector3d(const cv::Mat &cvVector);
     static Eigen::Matrix<double,3,1> toVector3d(const cv::Point3f &cvPoint);
-    static Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3);
+    static Eigen::Matrix<double, 3, 3> toMatrix3d(const cv::Mat& cvMat3);
+    static Eigen::Matrix<float, 3, 3> toMatrix3f(const cv::Mat& cvMat3);
     static Eigen::Matrix<double,4,4> toMatrix4d(const cv::Mat &cvMat4);
     static std::vector<float> toQuaternion(const cv::Mat &M);
 

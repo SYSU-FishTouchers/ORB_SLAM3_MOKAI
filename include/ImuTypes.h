@@ -31,6 +31,8 @@
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
 
+#include "Converter.h"
+
 namespace ORB_SLAM3
 {
 
@@ -136,6 +138,7 @@ public:
     cv::Mat Tcb;
     cv::Mat Tbc;
     cv::Mat Cov, CovWalk;
+    Eigen::Quaternionf Qcb;
 };
 
 //Integration of 1 gyro measurement

@@ -72,7 +72,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 
     // Load IMU parameters
     bool b_parse_imu = true;
-    if(sensor==System::IMU_MONOCULAR || sensor==System::IMU_STEREO)
+    if(sensor==System::IMU_MONOCULAR || sensor==System::IMU_STEREO || sensor==System::STEREO)
     {
         b_parse_imu = ParseIMUParamFile(fSettings);
         if(!b_parse_imu)
@@ -2449,8 +2449,7 @@ bool Tracking::TrackWithMotionModel()
     }
     else
     {
-        kalmanFilter();
-        mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
+        mCurrentFrame.SetPose(fusion(mVelocity)*mLastFrame.mTcw);
     }
 
 
@@ -3899,16 +3898,48 @@ int Tracking::GetMatchesInliers()
     return mnMatchesInliers;
 }
 
-double Tracking::kalmanFilter()
+cv::Mat Tracking::fusion(cv::Mat visual)
 {
-    integrate();
-    return 0.0f;
+    cv::Mat m;
+    visual.copyTo(m);
+    Eigen::Matrix3f tmp = (mpImuCalib->Qcb * integrate()).normalized().toRotationMatrix();
+    m.rowRange(0, 3).colRange(0, 3) = Converter::toCvMat(tmp);
+    return m;
+}
+
+cv::Mat Tracking::kalmanFilter(cv::Mat observation)
+{
+    /**
+     * 状态: currentQ
+     * 状态转移方程: Q_t = (Tcb * dQ) * Q_{t-1}
+     * 观测方程: observation = Hx + v, H = 1
+     * 观测噪声方差: R, 未知, R越小越相信观测值, 反之越相信预测值
+     * 状态转移方差: gyro 噪声
+     */
+
+/*
+    Eigen::Quaternionf q_observation;
+    Eigen::Quaternionf F = integrate();
+    float _R = 0.1f;
+    Eigen::Quaternionf R = Eigen::Quaternionf(1, _R, _R, _R);
+
+    // 提取旋转矩阵
+    q_observation = Converter::toMatrix3f(observation.rowRange(0, 3).colRange(0, 3));
+    // step 1. 将旋转矩阵从 body坐标系 转换到 camera坐标系
+    q_observation = mpImuCalib->Qcb * q_observation;
+    // step 2. X_ = F*X
+    Eigen::Quaternionf currentQ_ = currentQ * F;
+    // step 3. P_ = F*P*F^T + Q
+    // Eigen::Quaternionf currentP_ = F * currentP * F + Eigen::Quaternionf(1, mpImuCalib->Cov.at<float>(0, 0), mpImuCalib->Cov.at<float>(1, 1), mpImuCalib->Cov.at<float>(2, 2));
+    // step 4. K
+*/
+    return observation;
+
 }
 
 Eigen::Quaternionf Tracking::integrate()
 {
     Eigen::Quaternionf result(1, 0, 0, 0);
-    cv::Point3f accumulation(0, 0, 0);
 
     const int n = mvImuFromLastFrame.size() - 1;
     for (int i = 0; i < n; i++) {
@@ -3931,12 +3962,13 @@ Eigen::Quaternionf Tracking::integrate()
             angVel = mvImuFromLastFrame[i].w;
             tstep = mCurrentFrame.mTimeStamp - mLastFrame.mTimeStamp;
         }
-        accumulation += angVel * tstep;
+        Eigen::Quaternionf tmp(1, angVel.x * tstep, angVel.y * tstep, angVel.z * tstep);
+        tmp.normalize();
+        result *= tmp;
     }
 
-    return Eigen::AngleAxisf(accumulation.x, Eigen::Vector3f::UnitX())
-        * Eigen::AngleAxisf(accumulation.y, Eigen::Vector3f::UnitY())
-        * Eigen::AngleAxisf(accumulation.z, Eigen::Vector3f::UnitZ());
+    // TODO: recheck
+    return result;
 }
 
 } //namespace ORB_SLAM
