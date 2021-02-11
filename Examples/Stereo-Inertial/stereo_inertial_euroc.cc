@@ -159,7 +159,7 @@ int main(int argc, char **argv)
     cout.precision(17);
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::IMU_STEREO, true);
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::STEREO, true);
 
     cv::Mat imLeft, imRight, imLeftRect, imRightRect;
     for (seq = 0; seq<num_seq; seq++)
@@ -238,6 +238,7 @@ int main(int argc, char **argv)
 
             vTimesTrack[ni]=ttrack;
 
+            /*
             // Wait to load the next frame
             double T=0;
             if(ni<nImages[seq]-1)
@@ -247,6 +248,7 @@ int main(int argc, char **argv)
 
             if(ttrack<T)
                 usleep((T-ttrack)*1e6); // 1e6
+            */
         }
 
         if(seq < num_seq - 1)
