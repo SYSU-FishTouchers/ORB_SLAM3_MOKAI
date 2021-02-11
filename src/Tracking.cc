@@ -2321,7 +2321,7 @@ bool Tracking::TrackReferenceKeyFrame()
     }
 
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
-    mCurrentFrame.SetPose(mLastFrame.mTcw);
+    mCurrentFrame.SetPose(fusion(cv::Mat::eye(4, 4, CV_32F))*mLastFrame.mTcw);
 
     //mCurrentFrame.PrintPointDistribution();
 
@@ -3902,7 +3902,7 @@ cv::Mat Tracking::fusion(cv::Mat visual)
 {
     cv::Mat m;
     visual.copyTo(m);
-    Eigen::Matrix3f tmp = (mpImuCalib->Qcb * integrate()).normalized().toRotationMatrix();
+    Eigen::Matrix3f tmp = (integrate() * mpImuCalib->Qcb).normalized().toRotationMatrix();
     m.rowRange(0, 3).colRange(0, 3) = Converter::toCvMat(tmp);
     return m;
 }
