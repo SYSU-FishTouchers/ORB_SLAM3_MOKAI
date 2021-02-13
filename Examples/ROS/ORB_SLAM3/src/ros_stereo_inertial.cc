@@ -28,6 +28,7 @@
 #include<ros/ros.h>
 #include<cv_bridge/cv_bridge.h>
 #include<sensor_msgs/Imu.h>
+#include <visualization_msgs/Marker.h>
 
 #include<opencv2/core/core.hpp>
 
@@ -49,12 +50,14 @@ public:
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb, const bool bRect, const bool bClahe): mpSLAM(pSLAM), mpImuGb(pImuGb), do_rectify(bRect), mbClahe(bClahe){}
+    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb, const bool bRect, const bool bClahe, ros::Publisher&pub): 
+    mpSLAM(pSLAM), mpImuGb(pImuGb), do_rectify(bRect), mbClahe(bClahe), marker_pub(pub){}
 
     void GrabImageLeft(const sensor_msgs::ImageConstPtr& msg);
     void GrabImageRight(const sensor_msgs::ImageConstPtr& msg);
     cv::Mat GetImage(const sensor_msgs::ImageConstPtr &img_msg);
     void SyncWithImu();
+    void publish();
 
     queue<sensor_msgs::ImageConstPtr> imgLeftBuf, imgRightBuf;
     std::mutex mBufMutexLeft,mBufMutexRight;
@@ -67,6 +70,8 @@ public:
 
     const bool mbClahe;
     cv::Ptr<cv::CLAHE> mClahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+
+    ros::Publisher marker_pub;
 };
 
 
@@ -95,8 +100,10 @@ int main(int argc, char **argv)
   // Create SLAM system. It initializes all system threads and gets ready to process frames.
   ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::STEREO,true);
 
+  ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
+
   ImuGrabber imugb;
-  ImageGrabber igb(&SLAM,&imugb,sbRect == "true",bEqual);
+  ImageGrabber igb(&SLAM,&imugb,sbRect == "true",bEqual,marker_pub);
   
     if(igb.do_rectify)
     {      
@@ -269,6 +276,8 @@ void ImageGrabber::SyncWithImu()
 
       mpSLAM->TrackStereo(imLeft,imRight,tImLeft,vImuMeas);
 
+      publish();
+
       std::chrono::milliseconds tSleep(1);
       std::this_thread::sleep_for(tSleep);
     }
@@ -283,4 +292,65 @@ void ImuGrabber::GrabImu(const sensor_msgs::ImuConstPtr &imu_msg)
   return;
 }
 
+void ImageGrabber::publish()
+{
+    if (ros::ok()) {
+        vector<cv::Point3f> position;
+        vector<vector<float>> orientation;
+        mpSLAM->getKeyFrameTrajectory(position, orientation);
 
+        visualization_msgs::Marker line_strip, x_line, y_line, z_line;
+        line_strip.header.frame_id = x_line.header.frame_id = y_line.header.frame_id = z_line.header.frame_id = "/traj";
+        line_strip.header.stamp = x_line.header.stamp = y_line.header.stamp = z_line.header.stamp = ros::Time::now();
+        line_strip.ns = x_line.ns = y_line.ns = z_line.ns = "keyframe_trajectory";
+        line_strip.action = x_line.action = y_line.action = z_line.action = visualization_msgs::Marker::ADD;
+        line_strip.pose.orientation.w = x_line.pose.orientation.w = y_line.pose.orientation.w = z_line.pose.orientation.w = 1.0;
+
+        line_strip.id = 0;
+        x_line.id = 1;
+        y_line.id = 2;
+        z_line.id = 3;
+
+        line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+        x_line.type = visualization_msgs::Marker::ARROW;
+
+        // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+        line_strip.scale.x = 0.1;
+
+        x_line.scale.x = 1.0;
+        x_line.scale.y = 0.2;
+        x_line.scale.z = 0.2;
+
+        // Line strip is blue
+        line_strip.color.b = 1.0;
+        line_strip.color.a = 1.0;
+
+        x_line.color.r = 1.0;
+        x_line.color.a = 1.0;
+
+        line_strip.points.reserve(position.size());
+
+        // Create the vertices for the points and lines
+        for (auto& i : position) {
+            geometry_msgs::Point p;
+            p.x = i.x;
+            p.y = i.y;
+            p.z = i.z;
+            
+            line_strip.points.push_back(p);
+        }
+
+        if (position.size() > 0) {
+            x_line.pose.position.x = position.back().x;
+            x_line.pose.position.y = position.back().y;
+            x_line.pose.position.z = position.back().z;
+            x_line.pose.orientation.x = orientation.back()[0];
+            x_line.pose.orientation.y = orientation.back()[1];
+            x_line.pose.orientation.z = orientation.back()[2];
+            x_line.pose.orientation.w = orientation.back()[3];
+        }
+
+        marker_pub.publish(line_strip);
+        marker_pub.publish(x_line);
+    }
+}
