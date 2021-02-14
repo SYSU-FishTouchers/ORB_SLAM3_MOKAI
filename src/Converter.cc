@@ -235,4 +235,20 @@ std::vector<float> Converter::toEuler(const cv::Mat &R)
     return v_euler;
 }
 
+cv::Mat Converter::toRotationMatrix(const float x, const float y, const float z)
+{
+    // x, y, z
+    // Rz * Ry * Rx
+    cv::Mat axis_x = (cv::Mat_<float>(3, 3) << 1.0f, 0.0f, 0.0f,
+        0.0f, cos(x), -sin(x),
+        0.0f, sin(x), cos(x));
+    cv::Mat axis_y = (cv::Mat_<float>(3, 3) << cos(y), 0.0f, sin(y),
+        0.0f, 1.0f, 0.0f,
+        -sin(y), 0.0f, cos(y));
+    cv::Mat axis_z = (cv::Mat_<float>(3, 3) << cos(z), -sin(z), 0.0f,
+        sin(z), cos(z), 0.0f,
+        0.0f, 0.0f, 1.0f);
+    return axis_z * axis_y * axis_x;
+}
+
 } //namespace ORB_SLAM
