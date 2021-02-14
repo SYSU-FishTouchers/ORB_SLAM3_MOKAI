@@ -26,6 +26,7 @@
 #include<mutex>
 
 #include<ros/ros.h>
+#include<signal.h>
 #include<cv_bridge/cv_bridge.h>
 #include<sensor_msgs/Imu.h>
 #include <visualization_msgs/Marker.h>
@@ -37,6 +38,9 @@
 
 using namespace std;
 
+ORB_SLAM3::System* SLAM;
+bool LOOP = true;
+string kf_file = "kf_traj.txt";
 class ImuGrabber
 {
 public:
@@ -74,7 +78,12 @@ public:
     ros::Publisher marker_pub;
 };
 
-
+void SlamShutDown(int sig)
+{
+    SLAM->Shutdown();
+    SLAM->SaveKeyFrameTrajectoryTUM(kf_file);
+    LOOP = false;
+}
 
 int main(int argc, char **argv)
 {
@@ -82,7 +91,7 @@ int main(int argc, char **argv)
   ros::NodeHandle n("~");
   ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
   bool bEqual = false;
-  if(argc < 4 || argc > 5)
+  if(argc < 4 || argc > 6)
   {
     cerr << endl << "Usage: rosrun ORB_SLAM3 Stereo_Inertial path_to_vocabulary path_to_settings do_rectify [do_equalize]" << endl;
     ros::shutdown();
@@ -97,13 +106,18 @@ int main(int argc, char **argv)
       bEqual = true;
   }
 
+  if(argc==6)
+  {
+    kf_file = argv[5];
+  }
+
   // Create SLAM system. It initializes all system threads and gets ready to process frames.
-  ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::STEREO,true);
+  SLAM = new ORB_SLAM3::System(argv[1],argv[2],ORB_SLAM3::System::STEREO,true);
 
   ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
 
   ImuGrabber imugb;
-  ImageGrabber igb(&SLAM,&imugb,sbRect == "true",bEqual,marker_pub);
+  ImageGrabber igb(SLAM,&imugb,sbRect == "true",bEqual,marker_pub);
   
     if(igb.do_rectify)
     {      
@@ -148,6 +162,7 @@ int main(int argc, char **argv)
   ros::Subscriber sub_imu = n.subscribe("/imu", 1000, &ImuGrabber::GrabImu, &imugb); 
   ros::Subscriber sub_img_left = n.subscribe("/camera/left/image_raw", 100, &ImageGrabber::GrabImageLeft,&igb);
   ros::Subscriber sub_img_right = n.subscribe("/camera/right/image_raw", 100, &ImageGrabber::GrabImageRight,&igb);
+  signal(SIGINT, SlamShutDown);
 
   std::thread sync_thread(&ImageGrabber::SyncWithImu,&igb);
 
@@ -203,7 +218,7 @@ cv::Mat ImageGrabber::GetImage(const sensor_msgs::ImageConstPtr &img_msg)
 void ImageGrabber::SyncWithImu()
 {
   const double maxTimeDiff = 0.01;
-  while(1)
+  while(LOOP)
   {
     cv::Mat imLeft, imRight;
     double tImLeft = 0, tImRight = 0;
@@ -282,6 +297,9 @@ void ImageGrabber::SyncWithImu()
       std::this_thread::sleep_for(tSleep);
     }
   }
+
+  delete SLAM;
+  ros::shutdown();
 }
 
 void ImuGrabber::GrabImu(const sensor_msgs::ImuConstPtr &imu_msg)
