@@ -93,26 +93,21 @@ int main(int argc, char **argv)
   bool bEqual = false;
   if(argc < 4 || argc > 6)
   {
-    cerr << endl << "Usage: rosrun ORB_SLAM3 Stereo_Inertial path_to_vocabulary path_to_settings do_rectify [do_equalize]" << endl;
+    cerr << endl << "Usage: rosrun ORB_SLAM3 Stereo_Inertial path_to_vocabulary path_to_settings do_rectify [kf_file]" << endl;
     ros::shutdown();
     return 1;
   }
 
   std::string sbRect(argv[3]);
+
   if(argc==5)
   {
-    std::string sbEqual(argv[4]);
-    if(sbEqual == "true")
-      bEqual = true;
-  }
-
-  if(argc==6)
-  {
-    kf_file = argv[5];
+      kf_file = argv[4];
+       kf_file = "kf_" + kf_file +".txt";
   }
 
   // Create SLAM system. It initializes all system threads and gets ready to process frames.
-  SLAM = new ORB_SLAM3::System(argv[1],argv[2],ORB_SLAM3::System::STEREO,true);
+  SLAM = new ORB_SLAM3::System(argv[1],argv[2],ORB_SLAM3::System::STEREO,false);
 
   ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
 
