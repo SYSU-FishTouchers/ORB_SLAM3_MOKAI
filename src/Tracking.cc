@@ -72,7 +72,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 
     // Load IMU parameters
     bool b_parse_imu = true;
-    if(sensor==System::IMU_MONOCULAR || sensor==System::IMU_STEREO)
+    if(sensor==System::IMU_MONOCULAR || sensor==System::IMU_STEREO || sensor==System::STEREO)
     {
         b_parse_imu = ParseIMUParamFile(fSettings);
         if(!b_parse_imu)
@@ -2321,7 +2321,7 @@ bool Tracking::TrackReferenceKeyFrame()
     }
 
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
-    mCurrentFrame.SetPose(mLastFrame.mTcw);
+    mCurrentFrame.SetPose(fusion(cv::Mat::eye(4, 4, CV_32F))*mLastFrame.mTcw);
 
     //mCurrentFrame.PrintPointDistribution();
 
@@ -2449,7 +2449,7 @@ bool Tracking::TrackWithMotionModel()
     }
     else
     {
-        mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
+        mCurrentFrame.SetPose(fusion(mVelocity)*mLastFrame.mTcw);
     }
 
 
@@ -3896,6 +3896,79 @@ int Tracking::GetNumberDataset()
 int Tracking::GetMatchesInliers()
 {
     return mnMatchesInliers;
+}
+
+cv::Mat Tracking::fusion(cv::Mat visual)
+{
+    cv::Mat m;
+    visual.copyTo(m);
+    Eigen::Matrix3f tmp = (integrate() * mpImuCalib->Qcb).normalized().toRotationMatrix();
+    m.rowRange(0, 3).colRange(0, 3) = Converter::toCvMat(tmp);
+    return m;
+}
+
+cv::Mat Tracking::kalmanFilter(cv::Mat observation)
+{
+    /**
+     * 状态: currentQ
+     * 状态转移方程: Q_t = (Tcb * dQ) * Q_{t-1}
+     * 观测方程: observation = Hx + v, H = 1
+     * 观测噪声方差: R, 未知, R越小越相信观测值, 反之越相信预测值
+     * 状态转移方差: gyro 噪声
+     */
+
+/*
+    Eigen::Quaternionf q_observation;
+    Eigen::Quaternionf F = integrate();
+    float _R = 0.1f;
+    Eigen::Quaternionf R = Eigen::Quaternionf(1, _R, _R, _R);
+
+    // 提取旋转矩阵
+    q_observation = Converter::toMatrix3f(observation.rowRange(0, 3).colRange(0, 3));
+    // step 1. 将旋转矩阵从 body坐标系 转换到 camera坐标系
+    q_observation = mpImuCalib->Qcb * q_observation;
+    // step 2. X_ = F*X
+    Eigen::Quaternionf currentQ_ = currentQ * F;
+    // step 3. P_ = F*P*F^T + Q
+    // Eigen::Quaternionf currentP_ = F * currentP * F + Eigen::Quaternionf(1, mpImuCalib->Cov.at<float>(0, 0), mpImuCalib->Cov.at<float>(1, 1), mpImuCalib->Cov.at<float>(2, 2));
+    // step 4. K
+*/
+    return observation;
+
+}
+
+Eigen::Quaternionf Tracking::integrate()
+{
+    Eigen::Quaternionf result(1, 0, 0, 0);
+
+    const int n = mvImuFromLastFrame.size() - 1;
+    for (int i = 0; i < n; i++) {
+        float tstep;
+        cv::Point3f angVel;
+        if ((i == 0) && (i < (n - 1))) {
+            float tab = mvImuFromLastFrame[i + 1].t - mvImuFromLastFrame[i].t;
+            float tini = mvImuFromLastFrame[i].t - mLastFrame.mTimeStamp;
+            angVel = (mvImuFromLastFrame[i].w + mvImuFromLastFrame[i + 1].w - (mvImuFromLastFrame[i + 1].w - mvImuFromLastFrame[i].w) * (tini / tab)) * 0.5f;
+            tstep = mvImuFromLastFrame[i + 1].t - mLastFrame.mTimeStamp;
+        } else if (i < (n - 1)) {
+            angVel = (mvImuFromLastFrame[i].w + mvImuFromLastFrame[i + 1].w) * 0.5f;
+            tstep = mvImuFromLastFrame[i + 1].t - mvImuFromLastFrame[i].t;
+        } else if ((i > 0) && (i == (n - 1))) {
+            float tab = mvImuFromLastFrame[i + 1].t - mvImuFromLastFrame[i].t;
+            float tend = mvImuFromLastFrame[i + 1].t - mCurrentFrame.mTimeStamp;
+            angVel = (mvImuFromLastFrame[i].w + mvImuFromLastFrame[i + 1].w - (mvImuFromLastFrame[i + 1].w - mvImuFromLastFrame[i].w) * (tend / tab)) * 0.5f;
+            tstep = mCurrentFrame.mTimeStamp - mvImuFromLastFrame[i].t;
+        } else if ((i == 0) && (i == (n - 1))) {
+            angVel = mvImuFromLastFrame[i].w;
+            tstep = mCurrentFrame.mTimeStamp - mLastFrame.mTimeStamp;
+        }
+        Eigen::Quaternionf tmp(1, angVel.x * tstep, angVel.y * tstep, angVel.z * tstep);
+        tmp.normalize();
+        result *= tmp;
+    }
+
+    // TODO: recheck
+    return result;
 }
 
 } //namespace ORB_SLAM

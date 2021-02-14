@@ -151,6 +151,8 @@ public:
     void SaveTrajectoryEuRoC(const string &filename);
     void SaveKeyFrameTrajectoryEuRoC(const string &filename);
 
+    void getKeyFrameTrajectory(vector<cv::Point3f>&t, vector<vector<float>>&r);
+
     // Save data used for initialization debug
     void SaveDebugData(const int &iniIdx);
 

@@ -77,6 +77,16 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
     return cvMat.clone();
 }
 
+cv::Mat Converter::toCvMat(const Eigen::Matrix3f& m)
+{
+    cv::Mat cvMat(3, 3, CV_32F);
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            cvMat.at<float>(i, j) = m(i, j);
+
+    return cvMat.clone();
+}
+
 cv::Mat Converter::toCvMat(const Eigen::MatrixXd &m)
 {
     cv::Mat cvMat(m.rows(),m.cols(),CV_32F);
@@ -137,6 +147,17 @@ Eigen::Matrix<double,3,3> Converter::toMatrix3d(const cv::Mat &cvMat3)
     M << cvMat3.at<float>(0,0), cvMat3.at<float>(0,1), cvMat3.at<float>(0,2),
          cvMat3.at<float>(1,0), cvMat3.at<float>(1,1), cvMat3.at<float>(1,2),
          cvMat3.at<float>(2,0), cvMat3.at<float>(2,1), cvMat3.at<float>(2,2);
+
+    return M;
+}
+
+Eigen::Matrix<float, 3, 3> Converter::toMatrix3f(const cv::Mat& cvMat3)
+{
+    Eigen::Matrix<float, 3, 3> M;
+
+    M << cvMat3.at<float>(0, 0), cvMat3.at<float>(0, 1), cvMat3.at<float>(0, 2),
+        cvMat3.at<float>(1, 0), cvMat3.at<float>(1, 1), cvMat3.at<float>(1, 2),
+        cvMat3.at<float>(2, 0), cvMat3.at<float>(2, 1), cvMat3.at<float>(2, 2);
 
     return M;
 }
@@ -212,6 +233,22 @@ std::vector<float> Converter::toEuler(const cv::Mat &R)
     v_euler[2] = z;
 
     return v_euler;
+}
+
+cv::Mat Converter::toRotationMatrix(const float x, const float y, const float z)
+{
+    // x, y, z
+    // Rz * Ry * Rx
+    cv::Mat axis_x = (cv::Mat_<float>(3, 3) << 1.0f, 0.0f, 0.0f,
+        0.0f, cos(x), -sin(x),
+        0.0f, sin(x), cos(x));
+    cv::Mat axis_y = (cv::Mat_<float>(3, 3) << cos(y), 0.0f, sin(y),
+        0.0f, 1.0f, 0.0f,
+        -sin(y), 0.0f, cos(y));
+    cv::Mat axis_z = (cv::Mat_<float>(3, 3) << cos(z), -sin(z), 0.0f,
+        sin(z), cos(z), 0.0f,
+        0.0f, 0.0f, 1.0f);
+    return axis_z * axis_y * axis_x;
 }
 
 } //namespace ORB_SLAM

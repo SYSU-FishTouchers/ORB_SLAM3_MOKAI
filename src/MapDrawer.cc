@@ -157,6 +157,21 @@ void MapDrawer::DrawMapPoints()
     }
 
     glEnd();
+
+    // world coordinate
+    glBegin(GL_LINES);
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glVertex3f(0, 0, 0);
+    glVertex3f(1, 0, 0);
+
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 1, 0);
+
+    glColor3f(0.0f, 0.0f, 1.0f);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 0, 1);
+    glEnd();
 }
 
 void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const bool bDrawInertialGraph)
@@ -424,6 +439,21 @@ void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc)
     glEnd();
 
     glPopMatrix();
+
+    // world coordinate
+    glBegin(GL_LINES);
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glVertex3f(0, 0, 0);
+    glVertex3f(1, 0, 0);
+
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 1, 0);
+
+    glColor3f(0.0f, 0.0f, 1.0f);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 0, 1);
+    glEnd();
 }
 
 

@@ -272,6 +272,8 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
         for(size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
             mpTracker->GrabImuData(vImuMeas[i_imu]);
 
+    mpTracker->mvImuFromLastFrame.assign(vImuMeas.begin(), vImuMeas.end());
+
     // std::cout << "start GrabImageStereo" << std::endl;
     cv::Mat Tcw = mpTracker->GrabImageStereo(imLeft,imRight,timestamp,filename);
 
@@ -560,6 +562,7 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
             continue;
 
         cv::Mat R = pKF->GetRotation().t();
+        // x, y, z, w
         vector<float> q = Converter::toQuaternion(R);
         cv::Mat t = pKF->GetCameraCenter();
         f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
@@ -854,6 +857,47 @@ void System::SaveDebugData(const int &initIdx)
     f.close();
 }
 
+void System::getKeyFrameTrajectory(vector<cv::Point3f>& t, vector<vector<float>>& r)
+{
+    vector<Map*> vpMaps = mpAtlas->GetAllMaps();
+    Map* pBiggerMap;
+    int numMaxKFs = 0;
+    for (Map* pMap : vpMaps) {
+        if (pMap->GetAllKeyFrames().size() > numMaxKFs) {
+            numMaxKFs = pMap->GetAllKeyFrames().size();
+            pBiggerMap = pMap;
+        }
+    }
+
+    vector<KeyFrame*> vpKFs = pBiggerMap->GetAllKeyFrames();
+    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+    t.reserve(vpKFs.size());
+    r.reserve(vpKFs.size());
+
+    // Transform all keyframes so that the first keyframe is at the origin.
+    // After a loop closure the first keyframe might not be at the origin.
+
+    for (size_t i = 0; i < vpKFs.size(); i++) {
+        KeyFrame* pKF = vpKFs[i];
+
+        // pKF->SetPose(pKF->GetPose()*Two);
+
+        cv::Mat pose = pKF->GetPoseInverse();
+        cv::Mat transformMatrix = cv::Mat::eye(4, 4, CV_32F);
+        Converter::toRotationMatrix(0, 0, 0).copyTo(transformMatrix.rowRange(0, 3).colRange(0, 3));
+        pose = transformMatrix * pose;
+
+        if (pKF->isBad())
+            continue;
+
+        cv::Mat T = pose.rowRange(0, 3).col(3);
+        t.emplace_back(T.at<float>(0), T.at<float>(1), T.at<float>(2));
+
+        cv::Mat R = pose.rowRange(0, 3).colRange(0, 3);
+        vector<float> q = Converter::toQuaternion(R);
+        r.emplace_back(vector<float>({ q[0], q[1], q[2], q[3] }));
+    }
+}
 
 int System::GetTrackingState()
 {
