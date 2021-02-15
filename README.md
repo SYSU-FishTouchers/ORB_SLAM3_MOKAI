@@ -1,3 +1,11 @@
+CHANGE LOG
+1. add GPU support, refer to this [repo](https://github.com/yunchih/ORB-SLAM2-GPU2016-final).
+2. add binary vocabulary support, refer to this [pr](https://github.com/raulmur/ORB_SLAM2/pull/21).
+3. add ros Ctrl+C signal handle to save traj, refer to this [pr](https://github.com/raulmur/ORB_SLAM2/pull/310).
+4. add rviz support.
+
+---
+
 # ORB-SLAM3
 
 ### V0.3: Beta version, 4 Sep 2020
