@@ -35,12 +35,18 @@
 
 #include"../../../include/System.h"
 #include"../include/ImuTypes.h"
+#include "../include/Kalman.h"
 
 using namespace std;
 
 ORB_SLAM3::System* SLAM;
 bool LOOP = true;
 string kf_file = "kf_traj.txt";
+
+Kalman kalmanX(0.0f, 0.003f, 0.03f), kalmanY(0.0f, 0.003f, 0.03f);
+float last_frame_timestmap = 0.0f;
+float kalAngleX = 0.0f, kalAngleY = 0.0f;
+
 class ImuGrabber
 {
 public:
@@ -267,7 +273,38 @@ void ImageGrabber::SyncWithImu()
           double t = mpImuGb->imuBuf.front()->header.stamp.toSec();
           cv::Point3f acc(mpImuGb->imuBuf.front()->linear_acceleration.x, mpImuGb->imuBuf.front()->linear_acceleration.y, mpImuGb->imuBuf.front()->linear_acceleration.z);
           cv::Point3f gyr(mpImuGb->imuBuf.front()->angular_velocity.x, mpImuGb->imuBuf.front()->angular_velocity.y, mpImuGb->imuBuf.front()->angular_velocity.z);
-          vImuMeas.push_back(ORB_SLAM3::IMU::Point(acc,gyr,t));
+
+          // Kalman filter
+          if (last_frame_timestmap == 0.0f)
+              ;
+          else {
+              float dt = last_frame_timestmap - t;
+
+              // accelerometer output Gp = [Gpx, Gpy, Gpz] = R(g - a)
+              //                         = Rxyz * [0, 0, 1]
+              //                         = [-cos(z)sin(y),
+              //                            cos(y)sin(x) + cos(y)sin(z)sin(x),
+              //                            cos(x)cos(y) - sin(y)sin(x)sin(z)]
+              // z = 0
+              // Normailze(Gp) = [-sin(y), cos(y)sin(x), cos(y)cos(x)]
+
+              // y
+              float pitch = asin(-acc.x / sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z)) / CV_PI * 180;
+              // x
+              float roll = atan2(acc.y, acc.z) / CV_PI * 180;
+
+              // cout << pitch << " " << roll << endl;
+
+              kalmanY.filter(pitch, gyr.y, dt);
+              kalmanX.filter(roll, gyr.x, dt);
+
+              gyr.y -= kalmanY.getQbias();
+              gyr.x -= kalmanX.getQbias();
+          }
+
+          last_frame_timestmap = t;
+
+          vImuMeas.push_back(ORB_SLAM3::IMU::Point(acc, gyr, t));
           mpImuGb->imuBuf.pop();
         }
       }
