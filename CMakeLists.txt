@@ -138,6 +138,7 @@ src/cuda/Cuda.cu
 src/cuda/Fast_gpu.cu
 src/cuda/Orb_gpu.cu
 include/Utils.hpp
+include/Kalman.h
 )
 
 add_subdirectory(Thirdparty/g2o)
