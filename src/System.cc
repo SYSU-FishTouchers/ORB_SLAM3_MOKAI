@@ -861,7 +861,7 @@ void System::SaveDebugData(const int &initIdx)
     f.close();
 }
 
-void System::getKeyFrameTrajectory(vector<cv::Point3f>& t, vector<vector<float>>& r)
+void System::getPulishData(vector<cv::Point3f>& t, vector<vector<float>>& r, vector<cv::Point3f>& p)
 {
     vector<Map*> vpMaps = mpAtlas->GetAllMaps();
     Map* pBiggerMap;
@@ -900,6 +900,18 @@ void System::getKeyFrameTrajectory(vector<cv::Point3f>& t, vector<vector<float>>
         cv::Mat R = pose.rowRange(0, 3).colRange(0, 3);
         vector<float> q = Converter::toQuaternion(R);
         r.emplace_back(vector<float>({ q[0], q[1], q[2], q[3] }));
+    }
+
+    const vector<MapPoint *> &vpMPs = pBiggerMap->GetAllMapPoints();
+    if (vpMPs.empty())
+        return;
+    p.reserve(vpMPs.size());
+    for (size_t i = 0, iend = vpMPs.size(); i < iend; i++)
+    {
+        if (vpMPs[i]->isBad())
+            continue;
+        cv::Mat pos = vpMPs[i]->GetWorldPos();
+        p.emplace_back(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
     }
 }
 
