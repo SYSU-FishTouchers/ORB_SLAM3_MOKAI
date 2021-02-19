@@ -41,7 +41,7 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
 
 using namespace std;
 
@@ -368,40 +368,34 @@ void ImageGrabber::publish()
         vector<cv::Point3f> position;
         vector<vector<float>> orientation;
         vector<cv::Point3f> pointss;
-        mpSLAM->getPulishData(position, orientation, pointss);
+        vector<cv::Point3f> currentPoints;
+        mpSLAM->getPulishData(position, orientation, pointss, currentPoints);
 
-        visualization_msgs::Marker line_strip, x_line;
-        PointCloud::Ptr msg(new PointCloud);
+        visualization_msgs::Marker line_strip;
+        PointCloud::Ptr allPointsMsg(new PointCloud);
+        PointCloud::Ptr currentPointsMsg(new PointCloud);
 
-        line_strip.header.frame_id = x_line.header.frame_id = msg->header.frame_id = "/traj";
-        
+        line_strip.header.frame_id = allPointsMsg->header.frame_id = currentPointsMsg->header.frame_id = "/traj";
+
         ros::Time time_st = ros::Time::now();
-        line_strip.header.stamp = x_line.header.stamp = time_st;
-        pcl_conversions::toPCL(time_st, msg->header.stamp);
+        line_strip.header.stamp = time_st;
+        pcl_conversions::toPCL(time_st, allPointsMsg->header.stamp);
+        pcl_conversions::toPCL(time_st, currentPointsMsg->header.stamp);
 
-        line_strip.ns = x_line.ns = "keyframe_trajectory";
-        line_strip.action = x_line.action = visualization_msgs::Marker::ADD;
-        line_strip.pose.orientation.w = x_line.pose.orientation.w = 1.0;
+        line_strip.ns = "keyframe_trajectory";
+        line_strip.action = visualization_msgs::Marker::ADD;
+        line_strip.pose.orientation.w = 1.0;
 
         line_strip.id = 0;
-        x_line.id = 1;
 
         line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-        x_line.type = visualization_msgs::Marker::ARROW;
 
         // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
         line_strip.scale.x = 0.1;
 
-        x_line.scale.x = 1.0;
-        x_line.scale.y = 0.2;
-        x_line.scale.z = 0.2;
-
         // Line strip is blue
         line_strip.color.b = 1.0;
         line_strip.color.a = 1.0;
-
-        x_line.color.r = 1.0;
-        x_line.color.a = 1.0;
 
         line_strip.points.reserve(position.size());
 
@@ -415,26 +409,33 @@ void ImageGrabber::publish()
             line_strip.points.push_back(p);
         }
 
-        if (position.size() > 0) {
-            x_line.pose.position.x = position.back().x;
-            x_line.pose.position.y = position.back().y;
-            x_line.pose.position.z = position.back().z;
-            x_line.pose.orientation.x = orientation.back()[0];
-            x_line.pose.orientation.y = orientation.back()[1];
-            x_line.pose.orientation.z = orientation.back()[2];
-            x_line.pose.orientation.w = orientation.back()[3];
-        }
-
         for (auto &i : pointss)
         {
-          msg->points.push_back(pcl::PointXYZ(i.x, i.y, i.z));
+          pcl::PointXYZRGB Point;
+          Point.x = i.x;
+          Point.y = i.y;
+          Point.z = i.z;
+          Point.r = 255;
+          Point.g = 255;
+          Point.b = 255;
+          allPointsMsg->points.push_back(Point);
         }
         
-        // cout << msg->points.size() << endl;
-        if(pointss.size() != 0)
-          pcl_pub.publish(msg);
+        for (auto &i : currentPoints)
+        {
+          pcl::PointXYZRGB Point;
+          Point.x = i.x;
+          Point.y = i.y;
+          Point.z = i.z;
+          Point.r = 0;
+          Point.g = 255;
+          Point.b = 0;
+          allPointsMsg->points.push_back(Point);
+        }
 
+        // cout << allPointsMsg->points.size() << endl;
+        if(pointss.size() != 0)
+          pcl_pub.publish(allPointsMsg);
         marker_pub.publish(line_strip);
-        marker_pub.publish(x_line);
     }
 }

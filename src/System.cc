@@ -861,7 +861,7 @@ void System::SaveDebugData(const int &initIdx)
     f.close();
 }
 
-void System::getPulishData(vector<cv::Point3f>& t, vector<vector<float>>& r, vector<cv::Point3f>& p)
+void System::getPulishData(vector<cv::Point3f> &t, vector<vector<float>> &r, vector<cv::Point3f> &p, vector<cv::Point3f> &cp)
 {
     vector<Map*> vpMaps = mpAtlas->GetAllMaps();
     Map* pBiggerMap;
@@ -881,14 +881,15 @@ void System::getPulishData(vector<cv::Point3f>& t, vector<vector<float>>& r, vec
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
 
+    cv::Mat transformMatrix = cv::Mat::eye(4, 4, CV_32F);
+    // Converter::toRotationMatrix(7.0f / 180.0f * CV_PI, 0, 0).copyTo(transformMatrix.rowRange(0, 3).colRange(0, 3));
+
     for (size_t i = 0; i < vpKFs.size(); i++) {
         KeyFrame* pKF = vpKFs[i];
 
         // pKF->SetPose(pKF->GetPose()*Two);
 
         cv::Mat pose = pKF->GetPoseInverse();
-        cv::Mat transformMatrix = cv::Mat::eye(4, 4, CV_32F);
-        Converter::toRotationMatrix(0, 0, 0).copyTo(transformMatrix.rowRange(0, 3).colRange(0, 3));
         pose = transformMatrix * pose;
 
         if (pKF->isBad())
@@ -912,6 +913,16 @@ void System::getPulishData(vector<cv::Point3f>& t, vector<vector<float>>& r, vec
             continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         p.emplace_back(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
+    }
+
+    set<MapPoint*> s;
+    if(!vpKFs.empty()) {
+        s = vpKFs.back()->GetMapPoints();
+        cp.reserve(s.size());
+        for(auto &i: s) {
+            cv::Mat pos = i->GetWorldPos();
+            cp.emplace_back(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
+        }
     }
 }
 
