@@ -96,6 +96,7 @@ void SlamShutDown(int sig)
 {
     SLAM->Shutdown();
     SLAM->SaveKeyFrameTrajectoryTUM(kf_file);
+    SLAM->saveKeyFrameAndMapPoints("temp.txt");
     LOOP = false;
 }
 

@@ -986,6 +986,59 @@ void System::ChangeDataset()
     mpTracker->NewDataset();
 }
 
+void System::saveKeyFrameAndMapPoints(const string &filename)
+{
+    cv::Mat rotationMatrix = Converter::toRotationMatrix(7.0f / 180.0f * CV_PI, 0, 0);
+
+    vector<KeyFrame *> vpKFs = mpAtlas->GetAllKeyFrames();
+    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+
+    cout << "Saving KeyFrame and MapPoints to " << filename << endl;
+
+    // Transform all keyframes so that the first keyframe is at the origin.
+    // After a loop closure the first keyframe might not be at the origin.
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    set<MapPoint *> s ;
+    for (size_t i = 0; i < vpKFs.size(); i++)
+    {
+        KeyFrame *pKF = vpKFs[i];
+
+        // pKF->SetPose(pKF->GetPose()*Two);
+
+        if (pKF->isBad())
+            continue;
+
+        s = pKF->GetMapPoints();
+
+        // 地图点数目
+        f << s.size() << endl;
+
+        cv::Mat t = pKF->GetPoseInverse().rowRange(0, 3).col(3);
+        t = rotationMatrix * t;
+
+        // 关键帧"位置"
+        f << setprecision(7)
+          << t.at<float>(0) << " "
+          << t.at<float>(1) << " "
+          << t.at<float>(2) << endl;
+        
+        // 可见地图点
+        for (auto &j : s)
+        {
+            cv::Mat pos = j->GetWorldPos();
+            pos = rotationMatrix * pos;
+            f << pos.at<float>(0) << " "
+              << pos.at<float>(1) << " "
+              << pos.at<float>(2) << endl;
+        }
+    }
+
+    f.close();
+}
+
 /*void System::SaveAtlas(int type){
     cout << endl << "Enter the name of the file if you want to save the current Atlas session. To exit press ENTER: ";
     string saveFileName;

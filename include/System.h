@@ -180,6 +180,7 @@ public:
     void ChangeDataset();
 
     //void SaveAtlas(int type);
+    void saveKeyFrameAndMapPoints(const string &filename);
 
 private:
 
