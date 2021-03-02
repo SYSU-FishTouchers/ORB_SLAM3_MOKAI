@@ -37,6 +37,12 @@
 #include"../include/ImuTypes.h"
 #include "../include/Kalman.h"
 
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
+
 using namespace std;
 
 ORB_SLAM3::System* SLAM;
@@ -46,6 +52,7 @@ string kf_file = "kf_traj.txt";
 Kalman kalmanX(0.0f, 0.003f, 0.03f), kalmanY(0.0f, 0.003f, 0.03f);
 float last_frame_timestmap = 0.0f;
 float kalAngleX = 0.0f, kalAngleY = 0.0f;
+int cnt = 0;
 
 class ImuGrabber
 {
@@ -60,8 +67,8 @@ public:
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb, const bool bRect, const bool bClahe, ros::Publisher&pub): 
-    mpSLAM(pSLAM), mpImuGb(pImuGb), do_rectify(bRect), mbClahe(bClahe), marker_pub(pub){}
+    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb, const bool bRect, const bool bClahe, ros::Publisher&pub, ros::Publisher&pub2): 
+    mpSLAM(pSLAM), mpImuGb(pImuGb), do_rectify(bRect), mbClahe(bClahe), marker_pub(pub), pcl_pub(pub2){}
 
     void GrabImageLeft(const sensor_msgs::ImageConstPtr& msg);
     void GrabImageRight(const sensor_msgs::ImageConstPtr& msg);
@@ -82,12 +89,14 @@ public:
     cv::Ptr<cv::CLAHE> mClahe = cv::createCLAHE(3.0, cv::Size(8, 8));
 
     ros::Publisher marker_pub;
+    ros::Publisher pcl_pub;
 };
 
 void SlamShutDown(int sig)
 {
     SLAM->Shutdown();
     SLAM->SaveKeyFrameTrajectoryTUM(kf_file);
+    SLAM->saveKeyFrameAndMapPoints("temp.txt");
     LOOP = false;
 }
 
@@ -115,10 +124,11 @@ int main(int argc, char **argv)
   // Create SLAM system. It initializes all system threads and gets ready to process frames.
   SLAM = new ORB_SLAM3::System(argv[1],argv[2],ORB_SLAM3::System::STEREO,false);
 
-  ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 10);
+  ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 100);
+  ros::Publisher pcl_pub = n.advertise<PointCloud>("pcl", 100);
 
   ImuGrabber imugb;
-  ImageGrabber igb(SLAM,&imugb,sbRect == "true",bEqual,marker_pub);
+  ImageGrabber igb(SLAM,&imugb,sbRect == "true",bEqual,marker_pub,pcl_pub);
   
     if(igb.do_rectify)
     {      
@@ -254,11 +264,20 @@ void ImageGrabber::SyncWithImu()
 
       this->mBufMutexLeft.lock();
       imLeft = GetImage(imgLeftBuf.front());
+
+      // int mask = int(imLeft.rows * 0.65f);
+      // cv::Mat pRoi = imLeft(cv::Rect(0, mask, imLeft.cols, imLeft.rows - mask));
+      // pRoi.setTo(cv::Scalar(0, 0, 0));
+
       imgLeftBuf.pop();
       this->mBufMutexLeft.unlock();
 
       this->mBufMutexRight.lock();
       imRight = GetImage(imgRightBuf.front());
+      
+      // pRoi = imRight(cv::Rect(0, mask, imLeft.cols, imLeft.rows - mask));
+      // pRoi.setTo(cv::Scalar(0, 0, 0));
+
       imgRightBuf.pop();
       this->mBufMutexRight.unlock();
 
@@ -322,8 +341,10 @@ void ImageGrabber::SyncWithImu()
       }
 
       mpSLAM->TrackStereo(imLeft,imRight,tImLeft,vImuMeas);
-
-      publish();
+      
+      cnt++;
+      if(cnt % 20 == 0)
+        publish();
 
       std::chrono::milliseconds tSleep(1);
       std::this_thread::sleep_for(tSleep);
@@ -347,36 +368,35 @@ void ImageGrabber::publish()
     if (ros::ok()) {
         vector<cv::Point3f> position;
         vector<vector<float>> orientation;
-        mpSLAM->getKeyFrameTrajectory(position, orientation);
+        vector<cv::Point3f> pointss;
+        vector<cv::Point3f> currentPoints;
+        mpSLAM->getPulishData(position, orientation, pointss, currentPoints);
 
-        visualization_msgs::Marker line_strip, x_line, y_line, z_line;
-        line_strip.header.frame_id = x_line.header.frame_id = y_line.header.frame_id = z_line.header.frame_id = "/traj";
-        line_strip.header.stamp = x_line.header.stamp = y_line.header.stamp = z_line.header.stamp = ros::Time::now();
-        line_strip.ns = x_line.ns = y_line.ns = z_line.ns = "keyframe_trajectory";
-        line_strip.action = x_line.action = y_line.action = z_line.action = visualization_msgs::Marker::ADD;
-        line_strip.pose.orientation.w = x_line.pose.orientation.w = y_line.pose.orientation.w = z_line.pose.orientation.w = 1.0;
+        visualization_msgs::Marker line_strip;
+        PointCloud::Ptr allPointsMsg(new PointCloud);
+        PointCloud::Ptr currentPointsMsg(new PointCloud);
+
+        line_strip.header.frame_id = allPointsMsg->header.frame_id = currentPointsMsg->header.frame_id = "/traj";
+
+        ros::Time time_st = ros::Time::now();
+        line_strip.header.stamp = time_st;
+        pcl_conversions::toPCL(time_st, allPointsMsg->header.stamp);
+        pcl_conversions::toPCL(time_st, currentPointsMsg->header.stamp);
+
+        line_strip.ns = "keyframe_trajectory";
+        line_strip.action = visualization_msgs::Marker::ADD;
+        line_strip.pose.orientation.w = 1.0;
 
         line_strip.id = 0;
-        x_line.id = 1;
-        y_line.id = 2;
-        z_line.id = 3;
 
         line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-        x_line.type = visualization_msgs::Marker::ARROW;
 
         // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
         line_strip.scale.x = 0.1;
 
-        x_line.scale.x = 1.0;
-        x_line.scale.y = 0.2;
-        x_line.scale.z = 0.2;
-
         // Line strip is blue
         line_strip.color.b = 1.0;
         line_strip.color.a = 1.0;
-
-        x_line.color.r = 1.0;
-        x_line.color.a = 1.0;
 
         line_strip.points.reserve(position.size());
 
@@ -390,17 +410,33 @@ void ImageGrabber::publish()
             line_strip.points.push_back(p);
         }
 
-        if (position.size() > 0) {
-            x_line.pose.position.x = position.back().x;
-            x_line.pose.position.y = position.back().y;
-            x_line.pose.position.z = position.back().z;
-            x_line.pose.orientation.x = orientation.back()[0];
-            x_line.pose.orientation.y = orientation.back()[1];
-            x_line.pose.orientation.z = orientation.back()[2];
-            x_line.pose.orientation.w = orientation.back()[3];
+        for (auto &i : pointss)
+        {
+          pcl::PointXYZRGB Point;
+          Point.x = i.x;
+          Point.y = i.y;
+          Point.z = i.z;
+          Point.r = 255;
+          Point.g = 255;
+          Point.b = 255;
+          allPointsMsg->points.push_back(Point);
+        }
+        
+        for (auto &i : currentPoints)
+        {
+          pcl::PointXYZRGB Point;
+          Point.x = i.x;
+          Point.y = i.y;
+          Point.z = i.z;
+          Point.r = 0;
+          Point.g = 255;
+          Point.b = 0;
+          allPointsMsg->points.push_back(Point);
         }
 
+        // cout << allPointsMsg->points.size() << endl;
+        if(pointss.size() != 0)
+          pcl_pub.publish(allPointsMsg);
         marker_pub.publish(line_strip);
-        marker_pub.publish(x_line);
     }
 }

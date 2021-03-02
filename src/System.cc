@@ -861,7 +861,7 @@ void System::SaveDebugData(const int &initIdx)
     f.close();
 }
 
-void System::getKeyFrameTrajectory(vector<cv::Point3f>& t, vector<vector<float>>& r)
+void System::getPulishData(vector<cv::Point3f> &t, vector<vector<float>> &r, vector<cv::Point3f> &p, vector<cv::Point3f> &cp)
 {
     vector<Map*> vpMaps = mpAtlas->GetAllMaps();
     Map* pBiggerMap;
@@ -881,14 +881,15 @@ void System::getKeyFrameTrajectory(vector<cv::Point3f>& t, vector<vector<float>>
     // Transform all keyframes so that the first keyframe is at the origin.
     // After a loop closure the first keyframe might not be at the origin.
 
+    cv::Mat transformMatrix = cv::Mat::eye(4, 4, CV_32F);
+    // Converter::toRotationMatrix(7.0f / 180.0f * CV_PI, 0, 0).copyTo(transformMatrix.rowRange(0, 3).colRange(0, 3));
+
     for (size_t i = 0; i < vpKFs.size(); i++) {
         KeyFrame* pKF = vpKFs[i];
 
         // pKF->SetPose(pKF->GetPose()*Two);
 
         cv::Mat pose = pKF->GetPoseInverse();
-        cv::Mat transformMatrix = cv::Mat::eye(4, 4, CV_32F);
-        Converter::toRotationMatrix(0, 0, 0).copyTo(transformMatrix.rowRange(0, 3).colRange(0, 3));
         pose = transformMatrix * pose;
 
         if (pKF->isBad())
@@ -900,6 +901,28 @@ void System::getKeyFrameTrajectory(vector<cv::Point3f>& t, vector<vector<float>>
         cv::Mat R = pose.rowRange(0, 3).colRange(0, 3);
         vector<float> q = Converter::toQuaternion(R);
         r.emplace_back(vector<float>({ q[0], q[1], q[2], q[3] }));
+    }
+
+    const vector<MapPoint *> &vpMPs = pBiggerMap->GetAllMapPoints();
+    if (vpMPs.empty())
+        return;
+    p.reserve(vpMPs.size());
+    for (size_t i = 0, iend = vpMPs.size(); i < iend; i++)
+    {
+        if (vpMPs[i]->isBad())
+            continue;
+        cv::Mat pos = vpMPs[i]->GetWorldPos();
+        p.emplace_back(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
+    }
+
+    set<MapPoint*> s;
+    if(!vpKFs.empty()) {
+        s = vpKFs.back()->GetMapPoints();
+        cp.reserve(s.size());
+        for(auto &i: s) {
+            cv::Mat pos = i->GetWorldPos();
+            cp.emplace_back(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));
+        }
     }
 }
 
@@ -961,6 +984,59 @@ void System::ChangeDataset()
     }
 
     mpTracker->NewDataset();
+}
+
+void System::saveKeyFrameAndMapPoints(const string &filename)
+{
+    cv::Mat rotationMatrix = Converter::toRotationMatrix(7.0f / 180.0f * CV_PI, 0, 0);
+
+    vector<KeyFrame *> vpKFs = mpAtlas->GetAllKeyFrames();
+    sort(vpKFs.begin(), vpKFs.end(), KeyFrame::lId);
+
+    cout << "Saving KeyFrame and MapPoints to " << filename << endl;
+
+    // Transform all keyframes so that the first keyframe is at the origin.
+    // After a loop closure the first keyframe might not be at the origin.
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    set<MapPoint *> s ;
+    for (size_t i = 0; i < vpKFs.size(); i++)
+    {
+        KeyFrame *pKF = vpKFs[i];
+
+        // pKF->SetPose(pKF->GetPose()*Two);
+
+        if (pKF->isBad())
+            continue;
+
+        s = pKF->GetMapPoints();
+
+        // 地图点数目
+        f << s.size() << endl;
+
+        cv::Mat t = pKF->GetPoseInverse().rowRange(0, 3).col(3);
+        t = rotationMatrix * t;
+
+        // 关键帧"位置"
+        f << setprecision(7)
+          << t.at<float>(0) << " "
+          << t.at<float>(1) << " "
+          << t.at<float>(2) << endl;
+        
+        // 可见地图点
+        for (auto &j : s)
+        {
+            cv::Mat pos = j->GetWorldPos();
+            pos = rotationMatrix * pos;
+            f << pos.at<float>(0) << " "
+              << pos.at<float>(1) << " "
+              << pos.at<float>(2) << endl;
+        }
+    }
+
+    f.close();
 }
 
 /*void System::SaveAtlas(int type){
